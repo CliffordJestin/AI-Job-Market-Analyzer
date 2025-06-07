@@ -20,6 +20,7 @@ skills = df_skills.unique()
 # Initialize Dash app with dark theme
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.DARKLY])
 app.title = "AI Job Market Analyzer"
+server = app.server
 
 # Layout
 app.layout = dbc.Container([
