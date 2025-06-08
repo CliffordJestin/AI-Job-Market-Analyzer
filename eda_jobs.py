@@ -1,45 +1,28 @@
 import pandas as pd
-import seaborn as sns
-import matplotlib
-import matplotlib.pyplot as plt
-matplotlib.use('Agg')
 
-df=pd.read_csv("cleaned_jobs.csv")
+# Load your data
+df = pd.read_csv('final_cleaned_jobs.csv')
 
-print("\n📊 Experience (years):")
-print(df['years_exp'].describe())
-print(f"\nMissing experience values: {df['years_exp'].isna().sum()}")
+# Prepare skills column (handle missing values)
+df['clean_skills'] = df['clean_skills'].fillna('').astype(str)
 
-print("\n📊 Salary (average):")
-print(df['avg_salary'].describe())
+# Only consider rows with salary info
+df_with_salary = df[df['avg_salary'].notna()].copy()
 
+# Explode the skills column to one skill per row
+df_with_salary_exploded = df_with_salary.assign(clean_skills=df_with_salary['clean_skills'].str.split(','))
+df_with_salary_exploded = df_with_salary_exploded.explode('clean_skills')
+df_with_salary_exploded['clean_skills'] = df_with_salary_exploded['clean_skills'].str.strip()
 
-df_skills = df['clean_skills'].dropna().str.split(',').explode().str.strip()
-df_skills = df['clean_skills'].dropna().str.split(',').explode().str.strip()
-df_skills = df_skills[df_skills != "N/A"]
-df_skills = df_skills[df_skills != ""]
+# Drop empty skills
+df_with_salary_exploded = df_with_salary_exploded[df_with_salary_exploded['clean_skills'] != '']
 
-# Optionally make all skills Title Case (some listings mix case)
-df_skills = df_skills.str.title()
+# Now get count of jobs with salary info per skill
+skill_salary_counts = df_with_salary_exploded['clean_skills'].value_counts().reset_index()
+skill_salary_counts.columns = ['Skill', 'Jobs_with_Salary_Info']
 
+# Show top skills with salary info
+print(skill_salary_counts.head(20))
 
-# Remove "N/A" and empty strings
-df_skills = df_skills[df_skills != "N/A"]
-df_skills = df_skills[df_skills != ""]
-
-# --- Top N skills ---
-top_n = 15
-top_skills_counts = df_skills.value_counts().head(top_n)
-
-# --- Print info ---
-print(f"\n🔍 Total unique skills: {df_skills.nunique()}")
-print(f"\nTop {top_n} skills:\n")
-print(top_skills_counts)
-
-# --- Save cleaned data to CSV ---
-df.to_csv("cleaned_jobs.csv", index=False)
-print("✅ Cleaned data saved to cleaned_jobs.csv")
-
-# FINAL cleaned dataset (for dashboard)
-df.to_csv("final_cleaned_jobs.csv", index=False)
-print("✅ Final cleaned data saved to final_cleaned_jobs.csv")
+# Optional: Save to CSV to analyze in more detail
+# skill_salary_counts.to_csv('skills_with_salary_info.csv', index=False)

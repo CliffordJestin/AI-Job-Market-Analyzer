@@ -78,29 +78,77 @@ html.Div([
             )
         ], width=4),
     ], className="mb-4"),
+# Insights & Predictions Card (put this in app.layout, after Filters Row, before Graphs)
+dbc.Row([
+    dbc.Col(dbc.Card(dbc.CardBody([
+        html.H4("Future Insights & 2025 Job Market Trends", className="card-title"),
+        html.P("🔥 AI/ML roles expected to grow by 20-30% in 2025.", className="card-text"),
+        html.P("🚀 Emerging demand in Generative AI, LLM fine-tuning, and AI ethics roles.", className="card-text"),
+    ]), color="dark", inverse=True), width=12)
+], className="mb-4"),
+
 
     # Graphs Row 1: Salary and Experience histograms
-    dbc.Row([
-        dbc.Col(dcc.Graph(id='salary-histogram'), width=6),
-        dbc.Col(dcc.Graph(id='experience-histogram'), width=6),
-    ]),
+dbc.Row([
+    dbc.Col(
+        dbc.Card(dbc.CardBody(dcc.Graph(id='salary-histogram')),
+                 className="mb-4 shadow-sm rounded"),
+        md=6, xs=12
+    ),
+    dbc.Col(
+        dbc.Card(dbc.CardBody(dcc.Graph(id='experience-histogram')),
+                 className="mb-4 shadow-sm rounded"),
+        md=6, xs=12
+    ),
+], className="mb-4"),
+
+
 
     # Graph Row 2: Location bar chart
-    dbc.Row([
-        dbc.Col(dcc.Graph(id='location-bar'), width=12)
-    ]),
+dbc.Row([
+    dbc.Col(
+        dbc.Card(dbc.CardBody(dcc.Graph(id='location-bar')),
+                 className="mb-4 shadow-sm rounded"),
+        width=12
+    )
+], className="mb-4"),
+
 
     # Graph Row 3: Skills bar chart
-    dbc.Row([
-        dbc.Col(dcc.Graph(id='skills-bar'), width=12)
-    ]),
+dbc.Row([
+    dbc.Col(
+        dbc.Card(dbc.CardBody(dcc.Graph(id='skills-bar')),
+                 className="mb-4 shadow-sm rounded"),
+        width=12
+    )
+], className="mb-4"),
+
 
 
 # Graph Row 4: Top Companies and Heatmap
-    dbc.Row([
-        dbc.Col(dcc.Graph(id='companies-bar'), width=6),
-        dbc.Col(dcc.Graph(id='heatmap-role-exp'), width=6),
-    ]),
+dbc.Row([
+    dbc.Col(
+        dbc.Card(dbc.CardBody(dcc.Graph(id='companies-bar')),
+                 className="mb-4 shadow-sm rounded"),
+        md=6, xs=12
+    ),
+    dbc.Col(
+        dbc.Card(dbc.CardBody(dcc.Graph(id='heatmap-role-exp')),
+                 className="mb-4 shadow-sm rounded"),
+        md=6, xs=12
+    ),
+], className="mb-4"),
+
+
+dbc.Row([
+    dbc.Col(
+        dbc.Card(dbc.CardBody(dcc.Graph(id='exp-vs-salary-scatter')),
+                 className="mb-4 shadow-sm rounded"),
+        width=12
+    )
+], className="mb-4"),
+
+
 
 ], fluid=True, style={'backgroundColor': '#121212', 'color': 'white', 'minHeight': '100vh'})
 
@@ -114,6 +162,7 @@ html.Div([
     Output('companies-bar', 'figure'),  # NEW
     Output('heatmap-role-exp', 'figure'),
     Output('insights-box', 'children'),
+    Output('exp-vs-salary-scatter', 'figure'),
     Input('role-filter', 'value'),
     Input('location-filter', 'value'),
     Input('skills-filter', 'value'),
@@ -149,6 +198,7 @@ def update_graphs(selected_roles, selected_locations, selected_skills, salary_to
         exploded_skills = exploded_skills[exploded_skills['clean_skills'] != '']  # drop empty strings
         filtered_df = exploded_skills[exploded_skills['clean_skills'].isin(selected_skills)].reset_index(drop=True)
 
+
     # Check if filtered dataframe is empty
     if filtered_df.empty:
         no_data_fig = px.histogram(title="No data available for selected filters")
@@ -157,7 +207,10 @@ def update_graphs(selected_roles, selected_locations, selected_skills, salary_to
         )
         insight_text = "No job listings match your selected filters."
         # Return empty graphs and insight text
-        return no_data_fig, no_data_fig, no_data_fig, no_data_fig, insight_text
+        return (
+            no_data_fig, no_data_fig, no_data_fig, no_data_fig,
+            no_data_fig, no_data_fig, insight_text, no_data_fig
+        )
 
     # Color sequences for multi-color attractive plots
     salary_colors = px.colors.sequential.Plasma
@@ -166,10 +219,13 @@ def update_graphs(selected_roles, selected_locations, selected_skills, salary_to
     skill_colors = px.colors.qualitative.Set3
 
     # Salary histogram
+    # Salary histogram
     salary_fig = px.histogram(
-        filtered_df, x='avg_salary', nbins=20, title='Salary Distribution',
+        filtered_df[filtered_df['avg_salary'].notna()],
+        x='avg_salary', nbins=20, title='Salary Distribution',
         color_discrete_sequence=salary_colors
     )
+
     salary_fig.update_layout(
         plot_bgcolor='#121212',
         paper_bgcolor='#121212',
@@ -275,6 +331,25 @@ def update_graphs(selected_roles, selected_locations, selected_skills, salary_to
         paper_bgcolor='#121212',
         font=dict(color='white')
     )
+    scatter_fig = px.scatter(
+        filtered_df[filtered_df['avg_salary'].notna()],
+        x='years_exp', y='avg_salary',
+        color='role',
+        title='Experience vs Salary Scatter Plot',
+        size_max=15,
+        opacity=0.7,
+        color_discrete_sequence=px.colors.qualitative.Bold
+    )
+    scatter_fig.update_layout(
+        plot_bgcolor='#121212',
+        paper_bgcolor='#121212',
+        font=dict(color='white'),
+        xaxis=dict(title='Years of Experience', showgrid=False),
+        yaxis=dict(title='Average Salary', showgrid=False),
+        showlegend=True
+    )
+    # Insights & Predictions Card
+
 
     # Generate simple insights text
     avg_salary = filtered_df['avg_salary'].mean()
@@ -289,7 +364,7 @@ def update_graphs(selected_roles, selected_locations, selected_skills, salary_to
         f"Most Common Role: {top_role}"
     )
 
-    return salary_fig, exp_fig, loc_fig, skills_fig, companies_fig, heatmap_fig, insight_text
+    return salary_fig, exp_fig, loc_fig, skills_fig, companies_fig, heatmap_fig, insight_text, scatter_fig
 
 
 if __name__ == "__main__":
