@@ -1,12 +1,9 @@
-import pandas as pd
 import dash
-from dash import dcc, html, Input, Output
-import plotly.express as px
 import dash_bootstrap_components as dbc
+import pandas as pd
+import plotly.express as px
+from dash import dcc, html, Input, Output
 from dash.dependencies import State
-import io
-from xhtml2pdf import pisa
-import base64
 
 # Load data
 df = pd.read_csv("final_cleaned_jobs.csv")
