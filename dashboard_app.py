@@ -3,6 +3,10 @@ import dash
 from dash import dcc, html, Input, Output
 import plotly.express as px
 import dash_bootstrap_components as dbc
+from dash.dependencies import State
+import io
+from xhtml2pdf import pisa
+import base64
 
 # Load data
 df = pd.read_csv("final_cleaned_jobs.csv")
@@ -30,7 +34,7 @@ html.Div([
     dcc.Checklist(
         id='salary-toggle',
         options=[{'label': ' Show only jobs with salary info', 'value': 'with_salary'}],
-        value=['with_salary'],  # default = checked
+        value=[],  # default = unchecked
         inputStyle={'margin-right': '10px'},
         style={'color': 'white', 'fontSize': '16px'}
     )
@@ -82,11 +86,27 @@ html.Div([
 dbc.Row([
     dbc.Col(dbc.Card(dbc.CardBody([
         html.H4("Future Insights & 2025 Job Market Trends", className="card-title"),
-        html.P("🔥 AI/ML roles expected to grow by 20-30% in 2025.", className="card-text"),
-        html.P("🚀 Emerging demand in Generative AI, LLM fine-tuning, and AI ethics roles.", className="card-text"),
+        html.Ul([
+            html.Li("AI/ML roles expected to grow by 20-30% in 2025"),
+            html.Li("High demand for skills in Generative AI, LLM fine-tuning, and prompt engineering"),
+            html.Li("Over 60% of AI jobs in startups are now hybrid or remote-first"),
+            html.Li("Top hiring sectors: Fintech, Healthcare AI, EdTech, and Climate AI")
+        ], style={"paddingLeft": "20px"})
     ]), color="dark", inverse=True), width=12)
 ], className="mb-4"),
 
+html.Div([
+    html.Button("📥 Download Filtered Report", id="download-btn", className="btn btn-primary"),
+    dcc.Download(id="download-component")
+], style={'textAlign': 'center', 'marginBottom': '30px'}),
+
+    html.Div([
+        html.Button("Download CSV", id="download-btn", n_clicks=0, className="btn btn-primary m-2"),
+        dcc.Download(id="download-component"),
+
+        html.Button("Download PDF", id="download-pdf-btn", n_clicks=0, className="btn btn-secondary m-2"),
+        dcc.Download(id="pdf-download")
+    ], style={"textAlign": "center", "marginBottom": "20px"}),
 
     # Graphs Row 1: Salary and Experience histograms
 dbc.Row([
@@ -365,7 +385,94 @@ def update_graphs(selected_roles, selected_locations, selected_skills, salary_to
     )
 
     return salary_fig, exp_fig, loc_fig, skills_fig, companies_fig, heatmap_fig, insight_text, scatter_fig
+import io
+from xhtml2pdf import pisa
+import base64
 
+@app.callback(
+    Output("pdf-download", "data"),
+    Input("download-pdf-btn", "n_clicks"),
+    State('role-filter', 'value'),
+    State('location-filter', 'value'),
+    State('skills-filter', 'value'),
+    State('salary-toggle', 'value'),
+    prevent_initial_call=True
+)
+def download_pdf(n_clicks, selected_roles, selected_locations, selected_skills, salary_toggle):
+    if 'with_salary' in salary_toggle:
+        filtered_df = df[df['avg_salary'].notna() & df['years_exp'].notna()].copy()
+    else:
+        filtered_df = df[df['years_exp'].notna()].copy()
+
+    if selected_roles:
+        filtered_df = filtered_df[filtered_df['role'].isin(selected_roles)]
+
+    if selected_locations:
+        filtered_df['clean_location'] = filtered_df['clean_location'].fillna('').astype(str)
+        exploded_loc = filtered_df.assign(clean_location=filtered_df['clean_location'].str.split(',')).explode('clean_location')
+        exploded_loc['clean_location'] = exploded_loc['clean_location'].str.strip()
+        filtered_df = exploded_loc[exploded_loc['clean_location'].isin(selected_locations)].reset_index(drop=True)
+
+    if selected_skills:
+        filtered_df['clean_skills'] = filtered_df['clean_skills'].fillna('').astype(str)
+        exploded_skills = filtered_df.assign(clean_skills=filtered_df['clean_skills'].str.split(',')).explode('clean_skills')
+        exploded_skills['clean_skills'] = exploded_skills['clean_skills'].str.strip()
+        filtered_df = exploded_skills[exploded_skills['clean_skills'].isin(selected_skills)].reset_index(drop=True)
+
+    # Build a simple HTML report
+    html_content = f"""
+    <h2>AI Job Market Filtered Report</h2>
+    <p>Total Records: {len(filtered_df)}</p>
+    <table border="1" cellpadding="5" cellspacing="0">
+        <tr>{"".join(f"<th>{col}</th>" for col in filtered_df.columns[:6])}</tr>
+        {''.join(f"<tr>{''.join(f'<td>{val}</td>' for val in row[:6])}</tr>" for row in filtered_df.values[:20])}
+    </table>
+    """
+
+    # Convert HTML to PDF
+    pdf_stream = io.BytesIO()
+    pisa.CreatePDF(io.StringIO(html_content), dest=pdf_stream)
+    pdf_stream.seek(0)
+    pdf_base64 = base64.b64encode(pdf_stream.read()).decode("utf-8")
+
+    return {
+        "content": pdf_base64,
+        "filename": "ai_job_market_filtered_report.pdf",
+        "base64": True
+    }
+
+
+@app.callback(
+    Output("download-component", "data"),
+    Input("download-btn", "n_clicks"),
+    State('role-filter', 'value'),
+    State('location-filter', 'value'),
+    State('skills-filter', 'value'),
+    State('salary-toggle', 'value'),
+    prevent_initial_call=True
+)
+def download_filtered_data(n_clicks, selected_roles, selected_locations, selected_skills, salary_toggle):
+    if 'with_salary' in salary_toggle:
+        filtered_df = df[df['avg_salary'].notna() & df['years_exp'].notna()].copy()
+    else:
+        filtered_df = df[df['years_exp'].notna()].copy()
+
+    if selected_roles:
+        filtered_df = filtered_df[filtered_df['role'].isin(selected_roles)]
+
+    if selected_locations:
+        filtered_df['clean_location'] = filtered_df['clean_location'].fillna('').astype(str)
+        exploded_loc = filtered_df.assign(clean_location=filtered_df['clean_location'].str.split(',')).explode('clean_location')
+        exploded_loc['clean_location'] = exploded_loc['clean_location'].str.strip()
+        filtered_df = exploded_loc[exploded_loc['clean_location'].isin(selected_locations)].reset_index(drop=True)
+
+    if selected_skills:
+        filtered_df['clean_skills'] = filtered_df['clean_skills'].fillna('').astype(str)
+        exploded_skills = filtered_df.assign(clean_skills=filtered_df['clean_skills'].str.split(',')).explode('clean_skills')
+        exploded_skills['clean_skills'] = exploded_skills['clean_skills'].str.strip()
+        filtered_df = exploded_skills[exploded_skills['clean_skills'].isin(selected_skills)].reset_index(drop=True)
+
+    return dcc.send_data_frame(filtered_df.to_csv, "ai_job_market_filtered_report.csv", index=False)
 
 if __name__ == "__main__":
     app.run(debug=True)
