@@ -23,6 +23,15 @@ except sqlite3.OperationalError as e:
     else:
         print(f"❌ Error adding skills column: {e}")
 
+try:
+    c.execute("ALTER TABLE jobs ADD COLUMN posted_date TEXT;")
+    print("✅ Added posted_date column to jobs table.")
+except sqlite3.OperationalError as e:
+    if "duplicate column name" in str(e):
+        print("⚠️ 'posted_date' column already exists.")
+    else:
+        print(f"❌ Error adding posted_date column: {e}")
+
 # Commit and close
 conn.commit()
 conn.close()

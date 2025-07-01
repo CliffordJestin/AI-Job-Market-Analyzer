@@ -6,7 +6,7 @@ from dash import dcc, html, Input, Output
 from dash.dependencies import State
 
 # Load data
-df = pd.read_csv("final_cleaned_jobs.csv")
+df = pd.read_csv("cleaned_jobs.csv")
 df_complete = df[df['avg_salary'].notna() & df['years_exp'].notna()]
 
 # Prepare exploded columns for filters
@@ -92,10 +92,7 @@ dbc.Row([
     ]), color="dark", inverse=True), width=12)
 ], className="mb-4"),
 
-html.Div([
-    html.Button("📥 Download Filtered Report", id="download-btn", className="btn btn-primary"),
-    dcc.Download(id="download-component")
-], style={'textAlign': 'center', 'marginBottom': '30px'}),
+
 
     html.Div([
         html.Button("Download CSV", id="download-btn", n_clicks=0, className="btn btn-primary m-2"),
@@ -156,6 +153,13 @@ dbc.Row([
     ),
 ], className="mb-4"),
 
+dbc.Row([
+    dbc.Col(
+        dbc.Card(dbc.CardBody(dcc.Graph(id='trend-line')),
+                 className="mb-4 shadow-sm rounded"),
+        width=12
+    )
+], className="mb-4"),
 
 dbc.Row([
     dbc.Col(
@@ -178,6 +182,7 @@ dbc.Row([
     Output('skills-bar', 'figure'),
     Output('companies-bar', 'figure'),  # NEW
     Output('heatmap-role-exp', 'figure'),
+    Output('trend-line', 'figure'),
     Output('insights-box', 'children'),
     Output('exp-vs-salary-scatter', 'figure'),
     Input('role-filter', 'value'),
@@ -237,16 +242,28 @@ def update_graphs(selected_roles, selected_locations, selected_skills, salary_to
 
     # Salary histogram
     # Salary histogram
+    salary_df = filtered_df[filtered_df['avg_salary'].notna()].copy()
+    salary_df['avg_salary_lpa'] = salary_df['avg_salary'] / 100000  # Convert to LPA
+
     salary_fig = px.histogram(
-        filtered_df[filtered_df['avg_salary'].notna()],
-        x='avg_salary', nbins=20, title='Salary Distribution',
-        color_discrete_sequence=salary_colors
+        salary_df,
+        x='avg_salary_lpa',
+        nbins=20,
+        title='Salary Distribution (in LPA)',
+        color_discrete_sequence=salary_colors,
+        hover_data={'avg_salary': True},
+    )
+
+    salary_fig.update_traces(
+        hovertemplate="₹%{x:.1f} LPA"
     )
 
     salary_fig.update_layout(
         plot_bgcolor='#121212',
         paper_bgcolor='#121212',
         font=dict(color='white'),
+        xaxis_title='Average Salary (LPA)',
+        yaxis_title='Job Count',
         xaxis=dict(showgrid=False),
         yaxis=dict(showgrid=False),
         bargap=0.1,
@@ -331,6 +348,7 @@ def update_graphs(selected_roles, selected_locations, selected_skills, salary_to
         index='role',
         columns='exp_bucket',
         values='avg_salary',
+
         aggfunc='mean',
         observed = False
     ).fillna(0)
@@ -365,6 +383,38 @@ def update_graphs(selected_roles, selected_locations, selected_skills, salary_to
         yaxis=dict(title='Average Salary', showgrid=False),
         showlegend=True
     )
+    # Trend Over Time Line Chart
+    # Clean date column
+    filtered_df['posted_date_cleaned'] = pd.to_datetime(filtered_df['posted_date_cleaned'], errors='coerce')
+
+    trend_df = filtered_df.dropna(subset=['posted_date_cleaned']).copy()
+    trend_df['week'] = trend_df['posted_date_cleaned'].dt.to_period('W').dt.start_time
+
+    # Group by week and role
+    trend_grouped = trend_df.groupby(['week', 'role']).size().reset_index(name='Job Count')
+
+    trend_fig = px.line(
+        trend_grouped,
+        x='week',
+        y='Job Count',
+        color='role',
+        markers=True,
+        title="Job Postings Trend by Role (Weekly)",
+        color_discrete_sequence=px.colors.qualitative.Bold,
+        hover_data = {'role': True, 'Job Count': True}
+
+    )
+
+    trend_fig.update_layout(
+        plot_bgcolor='#121212',
+        paper_bgcolor='#121212',
+        font=dict(color='white'),
+        xaxis_title="Week",
+        yaxis_title="Number of Jobs",
+        legend_title="Role",
+
+    )
+
     # Insights & Predictions Card
 
 
@@ -376,12 +426,15 @@ def update_graphs(selected_roles, selected_locations, selected_skills, salary_to
 
     insight_text = (
         f"Filtered Jobs: {total_jobs} | "
-        f"Average Salary: ₹{avg_salary:,.0f} | "
+        f"Average Salary: ₹{avg_salary / 100000:.1f} LPA | "
+
         f"Average Experience Required: {avg_exp:.1f} years | "
         f"Most Common Role: {top_role}"
     )
 
-    return salary_fig, exp_fig, loc_fig, skills_fig, companies_fig, heatmap_fig, insight_text, scatter_fig
+    return salary_fig, exp_fig, loc_fig, skills_fig, companies_fig, heatmap_fig,trend_fig, insight_text, scatter_fig
+
+
 import io
 from xhtml2pdf import pisa
 import base64

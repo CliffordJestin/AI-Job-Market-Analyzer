@@ -21,7 +21,8 @@ def create_database(drop_existing=False):
             description TEXT,
             url TEXT UNIQUE,
             role TEXT,
-            skills TEXT
+            skills TEXT,
+            posted_date TEXT
         );
     """)
     print("✅ 'jobs' table created.")
@@ -35,8 +36,9 @@ def insert_job(job_data):
 
     try:
         c.execute("""
-            INSERT OR IGNORE INTO jobs (title, company, experience, salary, location, description, url, role, skills)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+            INSERT OR IGNORE INTO jobs (title, company, experience, salary, location, description, url, role, skills, posted_date)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
         """, (
             job_data["title"],
             job_data["company"],
@@ -46,7 +48,8 @@ def insert_job(job_data):
             job_data["description"],
             job_data["url"],
             job_data["role"],
-            job_data["skills"]
+            job_data["skills"],
+            job_data["posted_date"]
         ))
         conn.commit()
     except Exception as e:

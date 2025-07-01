@@ -1,28 +1,18 @@
 import pandas as pd
 
-# Load your data
-df = pd.read_csv('final_cleaned_jobs.csv')
+# Load the cleaned job data
+df = pd.read_csv("cleaned_jobs.csv")
 
-# Prepare skills column (handle missing values)
-df['clean_skills'] = df['clean_skills'].fillna('').astype(str)
+# Drop rows with missing salary
+salary_df = df[df['avg_salary'].notna()].copy()
 
-# Only consider rows with salary info
-df_with_salary = df[df['avg_salary'].notna()].copy()
+# Show basic salary stats
+print("🔍 Salary Summary (in ₹):")
+print(salary_df['posted_date_cleaned'].describe())
 
-# Explode the skills column to one skill per row
-df_with_salary_exploded = df_with_salary.assign(clean_skills=df_with_salary['clean_skills'].str.split(','))
-df_with_salary_exploded = df_with_salary_exploded.explode('clean_skills')
-df_with_salary_exploded['clean_skills'] = df_with_salary_exploded['clean_skills'].str.strip()
+# Convert to LPA for average display
 
-# Drop empty skills
-df_with_salary_exploded = df_with_salary_exploded[df_with_salary_exploded['clean_skills'] != '']
 
-# Now get count of jobs with salary info per skill
-skill_salary_counts = df_with_salary_exploded['clean_skills'].value_counts().reset_index()
-skill_salary_counts.columns = ['Skill', 'Jobs_with_Salary_Info']
-
-# Show top skills with salary info
-print(skill_salary_counts.head(20))
-
-# Optional: Save to CSV to analyze in more detail
-# skill_salary_counts.to_csv('skills_with_salary_info.csv', index=False)
+# Show top 10 rows with role and salary
+print("\n🧪 Sample Jobs with Salary:")
+print(salary_df[['role', 'posted_date_cleaned']].head(10))

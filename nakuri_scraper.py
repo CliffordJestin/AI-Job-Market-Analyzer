@@ -1,4 +1,4 @@
-# naukri_scraper.py
+# nakuri_scraper.py
 
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -19,11 +19,13 @@ CHROMEDRIVER_PATH = r"D:\webdriver\chromedriver-win64\chromedriver-win64\chromed
 roles = [
     "Data Analyst",
     "Data Scientist",
+    "Software Developer",
     "Machine Learning Engineer",
     "AI Engineer",
     "Business Analyst",
     "NLP Researcher",
-    "Software Developer"
+    "Cloud Computing",
+    "QA Testing"
 
 ]
 
@@ -107,11 +109,26 @@ def scrape_job_details(driver, job_url):
             location = ', '.join(unique_locations)
         else:
             location = "N/A"
+        posted_date = "N/A"
+        try:
+            label_elem = soup.find("label", string=re.compile(r"Posted", re.I))
+            if label_elem and label_elem.find_next("span"):
+                posted_date = label_elem.find_next("span").text.strip()
+        except Exception as e:
+            print(f"⚠️ Could not extract posted date: {e}")
 
         ### --- Skills extraction ---
         skills_spans = soup.select('div.styles_heading__veHpg + div a span')
         skills = [span.text.strip() for span in skills_spans]
         skills_string = ', '.join(skills) if skills else "N/A"
+        # --- Posted Date Extraction ---
+        posted_elem = soup.find('label', string=re.compile('Posted', re.I))
+        posted_text = "N/A"
+        if posted_elem:
+            sibling = posted_elem.find_next_sibling("span")
+            if sibling:
+                posted_text = sibling.text.strip()
+
 
         return {
             "title": job_title,
@@ -121,7 +138,9 @@ def scrape_job_details(driver, job_url):
             "location": location,
             "description": description,
             "url": job_url,
-            "skills": skills_string
+            "skills": skills_string,
+            "posted_date": posted_date
+
         }
 
     except Exception as e:
